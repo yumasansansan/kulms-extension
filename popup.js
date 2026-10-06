@@ -621,7 +621,9 @@
   // --- TOTP Settings ---
 
   var BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  var BASE32_RE = /^[A-Z2-7=\s-]+$/i;
+  // 空白とハイフンを除いて大文字にしたシークレットの形: Base32 の文字が 16 字
+  // （80 ビット）以上で、= は末尾だけ
+  var BASE32_RE = /^[A-Z2-7]{16,}=*$/;
   var totpDebugTimer = null;
 
   function base32DecodePopup(input) {
