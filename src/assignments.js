@@ -2786,6 +2786,11 @@
       "urgency-warning": 2, "urgency-success": 3, "urgency-other": 4
     };
 
+    // 期限切れの優先度は 0 なので、|| ではなく、表に無いときだけ 99 にする
+    function rank(urgency) {
+      return urgency in priority ? priority[urgency] : 99;
+    }
+
     var autoOnTab = (window.__kulmsSettings || {}).autoComplete !== false;
     assignments.forEach(function (a) {
       if (isAssignmentDismissed(a)) return;
@@ -2793,7 +2798,7 @@
       else if ((autoOnTab && isSubmitted(a.status)) || isAssignmentChecked(a)) return;
       var u = getUrgencyClass(a.deadline);
       var existing = courseUrgency[a.courseId];
-      if (!existing || (priority[u] || 99) < (priority[existing] || 99)) {
+      if (!existing || rank(u) < rank(existing)) {
         courseUrgency[a.courseId] = u;
       }
     });
