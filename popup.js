@@ -119,9 +119,10 @@
 
   // --- Memo helpers ---
 
+  // オブジェクトでも文字列でもないもの（null など）は null を返す。呼び出し元はそれを飛ばす
   function normalizeMemo(memo) {
     if (typeof memo === "string") return { id: Date.now(), text: memo, created: Date.now() };
-    return memo;
+    return memo && typeof memo === "object" ? memo : null;
   }
 
   // --- Refresh ---
@@ -390,7 +391,7 @@
     if (settings.memos !== false && memos && memos.length > 0) {
       memos.forEach(function (m) {
         var memo = normalizeMemo(m);
-        if (dismissedState["memo-" + memo.id]) return;
+        if (!memo || dismissedState["memo-" + memo.id]) return;
         if (!memo.deadline) {
           plainMemos.push(memo);
           return;

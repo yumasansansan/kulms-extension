@@ -672,7 +672,8 @@
         // メモも完全削除
         if (entry && entry.type === "memo" && entry._memoId) {
           memos = memos.filter(function (m) {
-            return normalizeMemo(m).id !== entry._memoId;
+            var memo = normalizeMemo(m);
+            return !memo || memo.id !== entry._memoId;
           });
         }
         delete dismissedState[key];
@@ -731,7 +732,7 @@
     var source = null;
     for (var i = 0; i < memos.length; i++) {
       var m = normalizeMemo(memos[i]);
-      if (m.id === memoId) { source = m; break; }
+      if (m && m.id === memoId) { source = m; break; }
     }
     if (!source || !source.deadline || !source.repeat) return;
     var nextDeadline = source.deadline + 7 * 24 * 60 * 60 * 1000;
@@ -1063,7 +1064,7 @@
     if (window.__kulmsSettings && window.__kulmsSettings.memos !== false) {
       memos.forEach(function (m) {
         var memo = normalizeMemo(m);
-        if (!memo.deadline) return;
+        if (!memo || !memo.deadline) return;
         var memoItem = {
           courseName: memo.courseName || "",
           courseId: memo.courseId || "",
@@ -1454,9 +1455,11 @@
   // --- メモ UI ---
 
   // Normalize memo object (backward compat: string-only memos → { text: str })
+  // オブジェクトでも文字列でもないもの（null など）は null を返す。呼び出し元はそれを飛ばす
+  // （旧版や同期、ストレージの破損で 1 件でも壊れると、描画全体が止まっていた）
   function normalizeMemo(memo) {
     if (typeof memo === "string") return { id: Date.now(), text: memo, created: Date.now() };
-    return memo;
+    return memo && typeof memo === "object" ? memo : null;
   }
 
   function renderMemos() {
@@ -1467,7 +1470,7 @@
     var plainMemos = [];
     memos.forEach(function (m) {
       var memo = normalizeMemo(m);
-      if (memo.deadline) return;
+      if (!memo || memo.deadline) return;
       // Check if dismissed
       if (dismissedState["memo-" + memo.id]) return;
       plainMemos.push(memo);
