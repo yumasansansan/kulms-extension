@@ -8,9 +8,16 @@
   var STORAGE_KEY = "kulms-tool-config";
   var DEFAULT_VISIBLE = ["概要", "授業資料（リソース）", "課題"];
 
+  // localStorage は LMS のページの JS からも書き換えられるので、読んだ値の形を確かめる
+  function isObject(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
   function getConfig() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-    catch (e) { return {}; }
+    var config = null;
+    try { config = JSON.parse(localStorage.getItem(STORAGE_KEY)); }
+    catch (e) { config = null; }
+    return isObject(config) ? config : {};
   }
 
   function saveConfig(config) {
@@ -28,15 +35,16 @@
 
   function isToolVisible(siteId, toolName) {
     var config = getConfig();
-    if (config[siteId] && config[siteId].hasOwnProperty(toolName)) {
-      return config[siteId][toolName];
+    var site = Object.prototype.hasOwnProperty.call(config, siteId) ? config[siteId] : null;
+    if (isObject(site) && Object.prototype.hasOwnProperty.call(site, toolName)) {
+      return site[toolName];
     }
     return DEFAULT_VISIBLE.indexOf(toolName) !== -1;
   }
 
   function setToolVisibility(siteId, toolName, visible) {
     var config = getConfig();
-    if (!config[siteId]) config[siteId] = {};
+    if (!Object.prototype.hasOwnProperty.call(config, siteId) || !isObject(config[siteId])) config[siteId] = {};
     var isDefault = (DEFAULT_VISIBLE.indexOf(toolName) !== -1) === visible;
     if (isDefault) {
       delete config[siteId][toolName];

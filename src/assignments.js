@@ -560,6 +560,9 @@
     } catch (e) {
       ids = [];
     }
+    // sessionStorage は LMS のページの JS からも書き換えられるので、文字列の配列だけを使う
+    if (!Array.isArray(ids)) ids = [];
+    ids = ids.filter(function (id) { return typeof id === "string" && id; });
     var flag = sessionStorage.getItem("kulms-submitted");
     if (!ids.length && !flag) return Promise.resolve(false);
     sessionStorage.removeItem("kulms-submitted");
