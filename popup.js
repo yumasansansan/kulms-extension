@@ -18,7 +18,8 @@
   // --- i18n (same approach as settings.js) ---
 
   function t(key, substitutions) {
-    if (overrideMessages && overrideMessages[key]) {
+    // 辞書自身のキーだけを引く（toString などで Object.prototype の関数に当たらないように）
+    if (overrideMessages && Object.prototype.hasOwnProperty.call(overrideMessages, key)) {
       var entry = overrideMessages[key];
       var msg = entry.message;
       if (substitutions && entry.placeholders) {
@@ -26,7 +27,8 @@
         Object.keys(entry.placeholders).forEach(function (name) {
           var idx = parseInt(entry.placeholders[name].content.replace(/\$/g, "")) - 1;
           if (idx >= 0 && idx < subs.length) {
-            msg = msg.replace(new RegExp("\\$" + name.toUpperCase() + "\\$", "g"), subs[idx]);
+            // 値は関数で渡す（文字列で渡すと、値の中の $& などが置換パターンとして展開される）
+            msg = msg.replace(new RegExp("\\$" + name.toUpperCase() + "\\$", "g"), function () { return subs[idx]; });
           }
         });
       }

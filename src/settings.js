@@ -101,7 +101,8 @@ var __kulmsOverrideMessages = null;
 
 function t(key, substitutions) {
   // 言語上書きが有効な場合、ローカル辞書から取得
-  if (__kulmsOverrideMessages && __kulmsOverrideMessages[key]) {
+  // （辞書自身のキーだけを引く。toString などで Object.prototype の関数に当たらないように）
+  if (__kulmsOverrideMessages && Object.prototype.hasOwnProperty.call(__kulmsOverrideMessages, key)) {
     var entry = __kulmsOverrideMessages[key];
     var msg = entry.message;
     if (substitutions && entry.placeholders) {
@@ -109,7 +110,8 @@ function t(key, substitutions) {
       Object.keys(entry.placeholders).forEach(function (name) {
         var idx = parseInt(entry.placeholders[name].content.replace(/\$/g, "")) - 1;
         if (idx >= 0 && idx < subs.length) {
-          msg = msg.replace(new RegExp("\\$" + name.toUpperCase() + "\\$", "g"), subs[idx]);
+          // 値は関数で渡す（文字列で渡すと、値の中の $& などが置換パターンとして展開される）
+          msg = msg.replace(new RegExp("\\$" + name.toUpperCase() + "\\$", "g"), function () { return subs[idx]; });
         }
       });
     }
