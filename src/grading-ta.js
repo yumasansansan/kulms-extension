@@ -53,6 +53,16 @@
       document.querySelector("sakai-grader");
   }
 
+  // decodeURIComponent は、% の後に 16 進数が続かないと URIError を投げる。
+  // リンクや URL のクエリは壊れていることもあるので、デコードできなければそのまま使う
+  function decodeComponent(s) {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  }
+
   function findAssignmentId(grader) {
     if (grader && grader.id) {
       var idMatch = grader.id.match(/^sakai-grader-(.+)$/);
@@ -60,12 +70,12 @@
     }
 
     var searchMatch = location.search.match(/assignmentId=\/assignment\/a\/[^/]+\/([^&]+)/);
-    if (searchMatch) return decodeURIComponent(searchMatch[1]);
+    if (searchMatch) return decodeComponent(searchMatch[1]);
 
     var assignmentLink = document.querySelector('a[href*="assignmentId=/assignment/a/"]');
     if (assignmentLink) {
       var hrefMatch = assignmentLink.href.match(/assignmentId=\/assignment\/a\/[^/]+\/([^&]+)/);
-      if (hrefMatch) return decodeURIComponent(hrefMatch[1]);
+      if (hrefMatch) return decodeComponent(hrefMatch[1]);
     }
 
     return "";
@@ -86,7 +96,9 @@
   }
 
   function stripStatusIcon(text) {
-    return String(text || "").trim().replace(STATUS_ICON_PREFIX_RE, "").trim();
+    // 文字列でないものは空として扱う（String() も、toString が関数でない
+    // オブジェクトでは例外を投げる）
+    return (typeof text === "string" ? text : "").trim().replace(STATUS_ICON_PREFIX_RE, "").trim();
   }
 
   function getLegendLabelKey(kind) {
@@ -135,8 +147,8 @@
     var assignmentMatch = String(href || "").match(/assignmentId=\/assignment\/a\/([^/]+)\/([^/&]+)/);
     var submissionMatch = String(href || "").match(/submissionId=\/assignment\/s\/([^/]+)\/([^/]+)\/([0-9a-f-]+)/);
     return {
-      siteId: decodeURIComponent((submissionMatch && submissionMatch[1]) || (assignmentMatch && assignmentMatch[1]) || ""),
-      assignmentId: decodeURIComponent((submissionMatch && submissionMatch[2]) || (assignmentMatch && assignmentMatch[2]) || ""),
+      siteId: decodeComponent((submissionMatch && submissionMatch[1]) || (assignmentMatch && assignmentMatch[1]) || ""),
+      assignmentId: decodeComponent((submissionMatch && submissionMatch[2]) || (assignmentMatch && assignmentMatch[2]) || ""),
       submissionId: (submissionMatch && submissionMatch[3]) || ""
     };
   }
@@ -265,7 +277,7 @@
           if (!detail || detail.requestId !== requestId) return;
           window.clearTimeout(timer);
           window.removeEventListener("kulms-ta-submissions", onSubmissions);
-          resolve(Array.isArray(detail.submissions) ? detail.submissions : []);
+          resolve(Array.isArray(detail.submissions) ? detail.submissions.map(normalizeSubmission).filter(Boolean) : []);
         }
 
         window.addEventListener("kulms-ta-submissions", onSubmissions);
@@ -276,6 +288,29 @@
     }).catch(function () {
       return [];
     });
+  }
+
+  // ページの世界から届いた提出を、ブリッジ（grading-ta-page.js）が送る形に揃える。
+  // ページのスクリプトはこの応答を偽れるので、型を確かめずに使うと、変換できない値で
+  // 例外になる。文字列の項目は文字列（数は文字列にする）、真偽の項目は真偽値にする
+  function normalizeSubmission(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    function text(v) {
+      if (typeof v === "string") return v;
+      return typeof v === "number" ? String(v) : "";
+    }
+    return {
+      id: text(raw.id),
+      firstSubmitterName: text(raw.firstSubmitterName),
+      status: text(raw.status),
+      submittedTime: text(raw.submittedTime),
+      submitted: !!raw.submitted,
+      draft: !!raw.draft,
+      hasHistory: !!raw.hasHistory,
+      grade: text(raw.grade),
+      graded: !!raw.graded,
+      returned: !!raw.returned
+    };
   }
 
   function parseBridgeDetail(detail) {
