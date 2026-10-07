@@ -242,7 +242,7 @@ a:hover{text-decoration:underline}
     <h3>シークレットキーの保存先</h3>
     <p>TOTP シークレットキーは、各プラットフォームのセキュアストレージに暗号化して保存されます。「コードを表示」や「QR」ボタンで表示される際は、その場で復号されて表示されます。</p>
     <ul>
-      <li><strong>ブラウザ拡張機能</strong> — <code>chrome.storage.local</code> に AES-256-GCM で暗号化して保存。暗号鍵は IndexedDB に保持（非抽出）。</li>
+      <li><strong>ブラウザ拡張機能</strong> — 拡張機能の <code>IndexedDB</code> に AES-256-GCM で暗号化して保存。暗号鍵は取り出せない形で生成し、暗号文と同じ <code>IndexedDB</code> に保持。鍵が同じ端末にあるため、端末のデータを読める人からは守れません。</li>
       <li><strong>iOS</strong> — iOS Keychain（OS 管理の暗号化）</li>
       <li><strong>Android</strong> — Android Keystore + SharedPreferences（AES-256-GCM、ハードウェア管理鍵）</li>
     </ul>
