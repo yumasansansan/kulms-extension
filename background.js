@@ -34,9 +34,12 @@ const LMS_BASE = "https://lms.gakusei.kyoto-u.ac.jp";
 // 科目名からコース番号部分や年度/曜日限情報を除去して検索用キーワードにする
 function cleanCourseName(name) {
   // [2026前期水２]固体電子工学 → 固体電子工学
+  // 末尾の (…) を取る。行末まで閉じない ( からの残りと、( の続かない空白の連なりは、
+  // 丸ごと一致させてそのまま返す（一字ずつずらして探し直すと、空白や ( が長く続くとき
+  // 入力長の 2 乗の時間がかかる）
   return name
     .replace(/^\s*\[[^\]]*\]\s*/, "")
-    .replace(/\s*\(.*\)\s*$/, "")
+    .replace(/(\s*\(.*\)\s*$)|\s+|\(.*/g, (m, tail) => (tail === undefined ? m : ""))
     .trim();
 }
 

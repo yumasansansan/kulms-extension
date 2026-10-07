@@ -23,7 +23,19 @@
   function getFolderDepth(td) {
     var el = td.querySelector('a[onclick*="collectionId"]');
     if (!el) return 0;
-    var m = (el.getAttribute("onclick") || "").match(/collectionId.*?=\s*'([^']*)'/);
+    // collectionId の後の最初の =' … ' の中身。その行に見つからなければ、行の残りを
+    // 丸ごと一致させて次の行へ進む（collectionId が一つの行に長く続き =' … ' が無いとき、
+    // その一つ一つから行末まで探し直して入力長の 2 乗の時間がかかる）
+    var onclick = el.getAttribute("onclick") || "";
+    var collectionRe = /collectionId(?:.*?=\s*'([^']*)'|.*)/g;
+    var m = null;
+    var r;
+    while ((r = collectionRe.exec(onclick)) !== null) {
+      if (r[1] !== undefined) {
+        m = r;
+        break;
+      }
+    }
     if (!m) return 0;
     var afterSite = m[1].replace(/\/group\/[^/]+\//, "");
     var segs = afterSite.split("/").filter(function (s) { return s; });

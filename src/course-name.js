@@ -12,7 +12,31 @@
 
   // ソート用
   var DAY_ORDER = { 月: 1, 火: 2, 水: 3, 木: 4, 金: 5, 土: 6, 日: 7 };
-  var SORT_RE = /\[(?:\d{4}[^\]]*?)?([月火水木金土日])\s*([０-９0-9]+)\s*\]/;
+  // [2026前期月１] や [月１] の曜日と時限。一致は開き括弧の後の最初の ] で終わるので、
+  // その前の「曜日 時限 ]」を先に探し、同じ括弧の中（前の ] から曜日まで）に、それを読む
+  // 開き括弧（直後に年の 4 桁が続くもの、または曜日の直前のもの）があるかを確かめる。
+  // どの括弧の中も一度しか見ない（開き括弧から一つの正規表現で探すと、開き括弧が長く
+  // 続くとき、その一つ一つから ] まで探し直して入力長の 2 乗の時間がかかる。括弧を探す
+  // のも括弧の中に限る。文字列の残り全体から探すと、曜日と時限が長く続くとき、同じく
+  // 2 乗になる）
+  var SORT_TAIL_RE = /([月火水木金土日])\s*([０-９0-9]+)\s*\]/g;
+
+  // text.match(/\[(?:\d{4}[^\]]*?)?([月火水木金土日])\s*([０-９0-9]+)\s*\]/) と同じ曜日（[1]）と時限（[2]）
+  function matchSort(text) {
+    SORT_TAIL_RE.lastIndex = 0;
+    var from = 0; // 前の「曜日 時限 ]」の後
+    var t;
+    while ((t = SORT_TAIL_RE.exec(text)) !== null) {
+      var inside = text.slice(from, t.index);
+      inside = inside.slice(inside.lastIndexOf("]") + 1);
+      var day = inside.length; // inside の中での曜日の位置
+      for (var p = inside.indexOf("["); p !== -1; p = inside.indexOf("[", p + 1)) {
+        if (p === day - 1 || (p <= day - 5 && /^\d{4}$/.test(inside.slice(p + 1, p + 5)))) return t;
+      }
+      from = SORT_TAIL_RE.lastIndex;
+    }
+    return null;
+  }
 
   function toHalfWidth(s) {
     return parseInt(
@@ -24,7 +48,7 @@
   }
 
   function getSortKey(text) {
-    var m = text.match(SORT_RE);
+    var m = matchSort(text);
     if (!m) return Infinity;
     var day = DAY_ORDER[m[1]] || 99;
     var period = toHalfWidth(m[2]);
@@ -155,7 +179,7 @@
       var targetType = null;
 
       if (active) {
-        var m = link.textContent.match(SORT_RE);
+        var m = matchSort(link.textContent);
         if (m && JS_DAY_MAP[m[1]] === active.day && toHalfWidth(m[2]) === active.period) {
           targetType = active.type;
         }

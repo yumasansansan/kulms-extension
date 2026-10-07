@@ -625,7 +625,9 @@
   var totpDebugTimer = null;
 
   function base32DecodePopup(input) {
-    var cleaned = input.replace(/[\s-]/g, "").replace(/=+$/, "").toUpperCase();
+    // 末尾の = を取る。= の連なりの途中からは始めないよう、その前の 1 字と一緒に一致させる
+    // （/=+$/ は、= が途中に長く続くと、その一つ一つから探し直して入力長の 2 乗の時間がかかる）
+    var cleaned = input.replace(/[\s-]/g, "").replace(/(^|[^=])=+$/, "$1").toUpperCase();
     if (!cleaned) return null;
     var output = [];
     var buffer = 0;
