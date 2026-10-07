@@ -534,6 +534,43 @@
     });
   }
 
+  // キャッシュの URL をポータル内のツールの URL に直す。課題には課題ツールの、クイズには
+  // テスト・クイズツールの地図を当てる。地図に無い科目の課題で、ツールの URL を
+  // まだ持たないものは、科目ごとに 1 回だけ、並行して pages.json から引く。引けた URL は、
+  // キャッシュが読んだときのままならそこにも残す (タイムスタンプは変えない)。
+  async function fixCachedToolUrls(cached) {
+    var maps = { assignment: buildAssignmentToolMapFromDOM(), quiz: buildQuizToolMapFromDOM() };
+    var hasToolUrl = function (ca) { return ca.url && ca.url.indexOf("/tool/") !== -1; };
+    var resolving = new Map(); // 科目 ID → pages.json から引く課題ツールの URL (Promise)
+    cached.assignments.forEach(function (ca) {
+      var isQuiz = ca.type === "quiz";
+      var mapped = (isQuiz ? maps.quiz : maps.assignment)[ca.courseId];
+      if (mapped) {
+        ca.url = mapped;
+      } else if (!isQuiz && !hasToolUrl(ca) && !resolving.has(ca.courseId)) {
+        resolving.set(ca.courseId, fetchAssignmentToolUrl(ca.courseId));
+      }
+    });
+    if (resolving.size === 0) return;
+    var found = false;
+    for (var ci = 0; ci < cached.assignments.length; ci++) {
+      var ca = cached.assignments[ci];
+      if (ca.type === "quiz" || hasToolUrl(ca) || !resolving.has(ca.courseId)) continue;
+      var url = await resolving.get(ca.courseId);
+      if (!url) continue;
+      ca.url = url;
+      found = true;
+    }
+    if (!found) return;
+    window.__kulmsSafeStorage.get(CACHE_KEY, function (result) {
+      var current = result[CACHE_KEY];
+      if (!current || current.timestamp !== cached.timestamp) return;
+      window.__kulmsSafeStorage.set({
+        [CACHE_KEY]: { timestamp: cached.timestamp, assignments: cached.assignments },
+      });
+    });
+  }
+
   // --- 完了チェック状態 ---
 
   async function loadCheckedState() {
@@ -2906,17 +2943,7 @@
       if (!forceRefresh) {
         const cached = await loadCache();
         if (cached) {
-          // キャッシュのURLをポータル内URLに修正
-          var toolMap = buildAssignmentToolMapFromDOM();
-          for (var ci = 0; ci < cached.assignments.length; ci++) {
-            var ca = cached.assignments[ci];
-            if (toolMap[ca.courseId]) {
-              ca.url = toolMap[ca.courseId];
-            } else if (!ca.url || ca.url.indexOf("/tool/") === -1) {
-              var apiUrl = await fetchAssignmentToolUrl(ca.courseId);
-              if (apiUrl) ca.url = apiUrl;
-            }
-          }
+          await fixCachedToolUrls(cached);
           updateCacheInfo(cached.timestamp);
           renderAssignments(cached.assignments);
           colorSidebarTabs(cached.assignments);
