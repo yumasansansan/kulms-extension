@@ -1935,14 +1935,37 @@
     contentEl.appendChild(wrapper);
   }
 
+  // --- バナーの場所 ---
+
+  // バナーを置く場所の目印を、描画の今の位置に置く。ストレージを読み終えたとき、
+  // 目印がまだ contentEl の中にあるときだけバナーに置き換える。読み終える前に
+  // 描画し直したり別のタブに移ったりすると、contentEl の中身ごと目印も消えるので、
+  // その描画のバナーは出さない (描画のたびにバナーが増えたり、設定タブに紛れ込んだり
+  // しないように)。
+  function bannerPlace() {
+    var place = document.createElement("span");
+    place.style.display = "none";
+    contentEl.appendChild(place);
+    return place;
+  }
+
+  function placeBanner(place, banner) {
+    contentEl.insertBefore(banner, place);
+    place.remove();
+  }
+
   // --- Android版バナー ---
 
   function appendAndroidBanner() {
-    if (!SHOW_ANDROID_BANNER) return;
+    if (!SHOW_ANDROID_BANNER || !contentEl) return;
+    var place = bannerPlace();
 
     chrome.storage.local.get(ANDROID_BANNER_DISMISSED_KEY, function (result) {
-      if (result[ANDROID_BANNER_DISMISSED_KEY]) return;
-      if (!contentEl) return;
+      if (place.parentNode !== contentEl) return;
+      if (result[ANDROID_BANNER_DISMISSED_KEY]) {
+        place.remove();
+        return;
+      }
 
       var banner = document.createElement("a");
       banner.href = "https://play.google.com/store/apps/details?id=com.radian0523.kulms_plus_for_android";
@@ -1973,18 +1996,22 @@
       banner.appendChild(icon);
       banner.appendChild(text);
       banner.appendChild(close);
-      contentEl.appendChild(banner);
+      placeBanner(place, banner);
     });
   }
 
   // --- iOS版バナー ---
 
   function appendIosBanner() {
-    if (!SHOW_IOS_BANNER) return;
+    if (!SHOW_IOS_BANNER || !contentEl) return;
+    var place = bannerPlace();
 
     chrome.storage.local.get(IOS_BANNER_DISMISSED_KEY, function (result) {
-      if (result[IOS_BANNER_DISMISSED_KEY]) return;
-      if (!contentEl) return;
+      if (place.parentNode !== contentEl) return;
+      if (result[IOS_BANNER_DISMISSED_KEY]) {
+        place.remove();
+        return;
+      }
 
       var banner = document.createElement("a");
       banner.href = "https://apps.apple.com/jp/app/kulms-mobile/id6762236865";
@@ -2015,7 +2042,7 @@
       banner.appendChild(icon);
       banner.appendChild(text);
       banner.appendChild(close);
-      contentEl.appendChild(banner);
+      placeBanner(place, banner);
     });
   }
 
