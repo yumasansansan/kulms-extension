@@ -72,9 +72,11 @@ async function fetchSakaiSiteContact(siteId) {
     if (!pagesRes.ok) return null;
     const pages = await pagesRes.json();
     let placementId = null;
-    for (const p of pages || []) {
-      for (const t of p.tools || []) {
-        if (t.toolId === "sakai.siteinfo") {
+    // 形の崩れたページやツールは飛ばす（null のページで例外になると、後ろの Site Info を見つけられない）
+    for (const p of Array.isArray(pages) ? pages : []) {
+      const tools = p && Array.isArray(p.tools) ? p.tools : [];
+      for (const t of tools) {
+        if (t && t.toolId === "sakai.siteinfo" && typeof t.placementId === "string" && t.placementId) {
           placementId = t.placementId;
           break;
         }
