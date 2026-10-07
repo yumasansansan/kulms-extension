@@ -105,7 +105,14 @@
     });
 
     // DOM並び替え: 表示ツール → その他 → 非表示ツール
-    visible.forEach(function (li) { toolList.appendChild(li); });
+    // 表示ツールがすでに末尾にその順で並んでいれば付け直さない。付け直しは DOM の
+    // 変更として MutationObserver に通知され、次の処理を呼ぶので、非表示ツールの
+    // 無い科目では 200ms ごとの処理が止まらなくなる。
+    var children = toolList.children;
+    var inOrder = visible.every(function (li, i) {
+      return children[children.length - visible.length + i] === li;
+    });
+    if (!inOrder) visible.forEach(function (li) { toolList.appendChild(li); });
 
     if (hidden.length > 0) {
       var toggleLi = document.createElement("li");
@@ -138,16 +145,17 @@
     document.querySelectorAll(".site-list-item").forEach(processCourse);
   }
 
-  var processing = false;
   var processTimer = null;
+  var observer = null;
 
   function scheduleProcess() {
-    if (processing || processTimer) return;
+    if (processTimer) return;
     processTimer = setTimeout(function () {
       processTimer = null;
-      processing = true;
       processAll();
-      processing = false;
+      // 自分の変更の通知は読み捨てる。MutationObserver のコールバックは処理の後に
+      // 非同期で呼ばれるので、処理中のフラグでは自分の変更を見分けられない。
+      observer.takeRecords();
     }, 200);
   }
 
@@ -155,9 +163,7 @@
     if (s.toolVisibility === false) return;
     processAll();
 
-    new MutationObserver(function () {
-      if (processing) return;
-      scheduleProcess();
-    }).observe(document.body, { childList: true, subtree: true });
+    observer = new MutationObserver(scheduleProcess);
+    observer.observe(document.body, { childList: true, subtree: true });
   });
 })();
