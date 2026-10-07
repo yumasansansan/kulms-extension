@@ -183,15 +183,20 @@
     contentEl.appendChild(el);
   }
 
-  // allTextbooks: { courseName: { books: [...], status: "found"|"not_found"|"no_textbook" } }
+  // allTextbooks: { siteId: { name: 科目名, books: [...], syllabusUrl, status: "found"|"not_found"|"no_textbook" } }
   function renderCourses(allTextbooks) {
     if (!contentEl) return;
     contentEl.innerHTML = "";
 
-    var courseNames = Object.keys(allTextbooks).sort(function (a, b) {
-      return getCourseSortKey(a) - getCourseSortKey(b);
+    // 科目はサイト ID で引き、表示名は項目に持つ。名前を持たない項目 (以前に
+    // 科目名をキーにして保存したキャッシュ) は、キーが表示名である
+    var nameOf = function (key) {
+      return allTextbooks[key].name || key;
+    };
+    var courseKeys = Object.keys(allTextbooks).sort(function (a, b) {
+      return getCourseSortKey(nameOf(a)) - getCourseSortKey(nameOf(b));
     });
-    if (courseNames.length === 0) {
+    if (courseKeys.length === 0) {
       showError("\u767B\u9332\u30B3\u30FC\u30B9\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093"); // 登録コースが見つかりません
       return;
     }
@@ -203,8 +208,9 @@
       "\u203B KULASIS\u516C\u958B\u30B7\u30E9\u30D0\u30B9\u306B\u767B\u9332\u3055\u308C\u3066\u3044\u308B\u79D1\u76EE\u306E\u307F\u5BFE\u5FDC\u3002"; // ※ KULASIS公開シラバスに登録されている科目のみ対応。
     contentEl.appendChild(note);
 
-    courseNames.forEach(function (courseName) {
-      var entry = allTextbooks[courseName];
+    courseKeys.forEach(function (courseKey) {
+      var entry = allTextbooks[courseKey];
+      var courseName = nameOf(courseKey);
       var books = entry.books || [];
       var status = entry.status || "not_found";
 
@@ -351,9 +357,11 @@
         "\u30B7\u30E9\u30D0\u30B9\u3092\u53D6\u5F97\u4E2D... (0/" + courses.length + ")"
       ); // シラバスを取得中...
 
+      // 同名の科目が上書きし合わないよう、サイト ID をキーにし、表示名は項目に持つ
       var allTextbooks = {};
       for (var i = 0; i < courses.length; i++) {
         var course = courses[i];
+        var key = course.id;
         var name = course.name;
         showLoading(
           "\u30B7\u30E9\u30D0\u30B9\u3092\u53D6\u5F97\u4E2D... (" +
@@ -365,12 +373,12 @@
         try {
           var result = await fetchTextbooksForCourse(course);
           if (result.books.length > 0) {
-            allTextbooks[name] = { books: result.books, syllabusUrl: result.syllabusUrl, status: "found" };
+            allTextbooks[key] = { name: name, books: result.books, syllabusUrl: result.syllabusUrl, status: "found" };
           } else {
-            allTextbooks[name] = { books: [], syllabusUrl: result.syllabusUrl, status: result.syllabusUrl ? "no_textbook" : "not_found" };
+            allTextbooks[key] = { name: name, books: [], syllabusUrl: result.syllabusUrl, status: result.syllabusUrl ? "no_textbook" : "not_found" };
           }
         } catch (e) {
-          allTextbooks[name] = { books: [], syllabusUrl: "", status: "not_found" };
+          allTextbooks[key] = { name: name, books: [], syllabusUrl: "", status: "not_found" };
         }
       }
 
