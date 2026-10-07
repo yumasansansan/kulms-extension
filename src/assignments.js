@@ -71,6 +71,25 @@
     return res.json();
   }
 
+  // Sakai の応答は、形を確かめてから読む（形の崩れた項目 1 つで例外になり、
+  // 科目や課題の一覧がまとめて消えないように）
+  function isObject(v) {
+    return v !== null && typeof v === "object";
+  }
+
+  // 応答 data の key の一覧から、オブジェクトの項目だけを取り出す（一覧が無い・配列でなければ空）
+  function apiList(data, key) {
+    var list = isObject(data) ? data[key] : null;
+    return Array.isArray(list) ? list.filter(isObject) : [];
+  }
+
+  // 応答の値を文字列として読む（数は文字列にし、それ以外は空文字列）
+  function apiText(v) {
+    if (typeof v === "string") return v;
+    if (typeof v === "number" && isFinite(v)) return String(v);
+    return "";
+  }
+
   // --- コース（サイト）一覧取得 ---
 
   // Tier 1: 現ページDOMからサイトリンク抽出
@@ -102,13 +121,12 @@
   // Tier 2: Sakai Direct API
   async function fetchCoursesFromAPI() {
     const data = await sakaiGet("/direct/site.json?_limit=200");
-    const sites = data.site_collection || [];
-    return sites
-      .filter((s) => s.type === "course" || s.type === "project")
+    return apiList(data, "site_collection")
+      .filter((s) => (s.type === "course" || s.type === "project") && apiText(s.id))
       .map((s) => ({
-        id: s.id,
-        name: s.title,
-        url: BASE_URL + "/portal/site/" + s.id,
+        id: apiText(s.id),
+        name: apiText(s.title),
+        url: BASE_URL + "/portal/site/" + apiText(s.id),
       }));
   }
 
@@ -217,18 +235,23 @@
 
   // --- 課題データ取得 (Sakai Direct API) ---
 
+  // Sakai の日時（ミリ秒、{ epochSecond }、{ time }、数の文字列）をミリ秒の数にする。
+  // 読めないとき（数でも数の文字列でもない値、Date で表せない数）は null
   function extractTimestamp(val) {
     if (!val) return null;
-    if (typeof val === "number") return val;
-    if (typeof val === "object") {
-      if (val.epochSecond) return val.epochSecond * 1000;
-      if (val.time) return val.time;
+    var ms = null;
+    if (typeof val === "number" || typeof val === "string") {
+      ms = Number(val);
+    } else if (typeof val === "object") {
+      if (val.epochSecond) ms = numberOf(val.epochSecond) * 1000;
+      else if (val.time) ms = numberOf(val.time);
     }
-    if (typeof val === "string") {
-      const n = Number(val);
-      return isNaN(n) ? null : n;
-    }
-    return null;
+    return ms !== null && Math.abs(ms) <= 8.64e15 ? ms : null;
+  }
+
+  // 数か数の文字列を数にする。それ以外は NaN
+  function numberOf(v) {
+    return typeof v === "number" || typeof v === "string" ? Number(v) : NaN;
   }
 
   // 各コースの「課題」ツールURLを取得
@@ -247,12 +270,12 @@
   async function fetchAssignmentToolUrl(siteId) {
     try {
       var data = await sakaiGet("/direct/site/" + siteId + "/pages.json");
-      var pages = Array.isArray(data) ? data : [];
+      var pages = Array.isArray(data) ? data.filter(isObject) : [];
       for (var i = 0; i < pages.length; i++) {
-        var tools = pages[i].tools || [];
+        var tools = Array.isArray(pages[i].tools) ? pages[i].tools : [];
         for (var j = 0; j < tools.length; j++) {
-          if (tools[j].toolId === "sakai.assignment.grades") {
-            return BASE_URL + "/portal/site/" + siteId + "/tool/" + tools[j].id;
+          if (isObject(tools[j]) && tools[j].toolId === "sakai.assignment.grades" && apiText(tools[j].id)) {
+            return BASE_URL + "/portal/site/" + siteId + "/tool/" + apiText(tools[j].id);
           }
         }
       }
@@ -262,12 +285,18 @@
     return null;
   }
 
+  // 提出の一覧 data.submissions の最初の提出（オブジェクトでなければ null）
+  function firstSubmission(data) {
+    var subs = isObject(data) ? data.submissions : null;
+    return Array.isArray(subs) && isObject(subs[0]) ? subs[0] : null;
+  }
+
   async function fetchAssignmentsForCourse(course, toolMap) {
     try {
       const data = await sakaiGet(
         "/direct/assignment/site/" + course.id + ".json"
       );
-      const list = data.assignment_collection || [];
+      const list = apiList(data, "assignment_collection");
 
       // コースの課題ツールURL（ポータル内遷移）
       var courseAssignUrl = toolMap[course.id];
@@ -279,7 +308,8 @@
       // 個別APIで正確な提出状態を取得（一覧APIは提出状態が不正確）
       var itemResults = await Promise.allSettled(
         list.map(function (a) {
-          return sakaiGet("/direct/assignment/item/" + (a.entityId || a.id) + ".json");
+          var id = apiText(a.entityId) || apiText(a.id);
+          return id ? sakaiGet("/direct/assignment/item/" + id + ".json") : Promise.resolve(null);
         })
       );
 
@@ -291,9 +321,9 @@
 
         // 個別APIのレスポンスから正確な提出状態を取得
         var itemData = itemResults[idx].status === "fulfilled" ? itemResults[idx].value : null;
-        var sub = itemData && itemData.submissions && itemData.submissions[0];
+        var sub = firstSubmission(itemData);
         // フォールバック: 個別APIが失敗した場合は一覧APIのデータを使用
-        if (!sub) sub = a.submissions && a.submissions[0];
+        if (!sub) sub = firstSubmission(a);
 
         let status = "";
         let grade = "";
@@ -302,7 +332,7 @@
           // Boolean フィールド（graded, returned 等）は前回の提出状態が残るため
           // 単体では状態#11（返却後に作業中）等を正しく判定できない。
           // 参照: docs/sakai-submission-states.md
-          var subStatusRaw = sub.status || "";
+          var subStatusRaw = apiText(sub.status);
           var subStatusLower = subStatusRaw.toLowerCase();
           var statusIndicatesSubmitted =
             subStatusLower.includes("提出済") || subStatusLower.includes("submitted") ||
@@ -318,11 +348,11 @@
             } else {
               status = "提出済";
             }
-            grade = sub.grade || "";
+            grade = apiText(sub.grade);
           } else if (sub.userSubmission && !sub.draft && !subStatusRaw) {
             // status文字列がないがBooleanで提出済みと判定できるフォールバック
             status = "提出済";
-            if (sub.graded) grade = sub.grade || "";
+            if (sub.graded) grade = apiText(sub.grade);
           } else if (subStatusRaw && subStatusRaw !== "未開始" && subStatusLower !== "not started") {
             // その他のステータス（取組中、宣誓済み等）をそのまま使用
             status = subStatusRaw;
@@ -332,14 +362,14 @@
         return {
           courseName: course.name,
           courseId: course.id,
-          name: a.title || "",
+          name: apiText(a.title),
           url: courseAssignUrl,
           deadline: deadline,
           closeTime: extractTimestamp(a.closeTime) || deadline,
           deadlineText: deadline ? formatDeadline(deadline) : "",
           status: status,
-          grade: grade || a.gradeDisplay || a.grade || "",
-          entityId: a.entityId || a.id || "",
+          grade: grade || apiText(a.gradeDisplay) || apiText(a.grade),
+          entityId: apiText(a.entityId) || apiText(a.id),
           type: "assignment",
           // 再提出可能判定: APIフラグ + submission の残り回数
           // sub.properties.allow_resubmit_number: -1=無制限, 0=枯渇, >0=残りN回
@@ -380,7 +410,7 @@
   async function fetchQuizzesForCourse(course, toolMap) {
     try {
       var data = await sakaiGet("/direct/sam_pub/context/" + course.id + ".json");
-      var list = data.sam_pub_collection || [];
+      var list = apiList(data, "sam_pub_collection");
       var quizUrl = toolMap[course.id] || BASE_URL + "/portal/site/" + course.id;
       // 未公開クイズを除外: startDate が未来のものはまだ公開されていない (Comfortable Sakai 同様)
       var now = Date.now();
@@ -394,14 +424,14 @@
         return {
           courseName: course.name,
           courseId: course.id,
-          name: q.title || "",
+          name: apiText(q.title),
           url: quizUrl,
           deadline: deadline,
           closeTime: closeTime,
           deadlineText: deadline ? formatDeadline(deadline) : "",
           status: "",
           grade: "",
-          entityId: q.publishedAssessmentId ? String(q.publishedAssessmentId) : "",
+          entityId: apiText(q.publishedAssessmentId),
           type: "quiz",
         };
       });

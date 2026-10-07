@@ -27,8 +27,11 @@
     });
     if (!res.ok) throw new Error("API failed");
     const data = await res.json();
-    return (data.site_collection || [])
-      .filter((s) => s.type === "course" || s.type === "project")
+    // 形の崩れた項目は飛ばす（1 つで例外になると、API から得た一覧をすべて捨ててしまう）
+    const sites = data && Array.isArray(data.site_collection) ? data.site_collection : [];
+    return sites
+      .filter((s) => s && (s.type === "course" || s.type === "project") &&
+        typeof s.id === "string" && s.id && typeof s.title === "string")
       .map((s) => ({
         id: s.id,
         name: s.title,
