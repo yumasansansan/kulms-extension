@@ -28,7 +28,13 @@
     },
     {
       "matches": ["https://auth.iimc.kyoto-u.ac.jp/*"],
-      "js": ["vendor/jsqr.min.js", "src/auth-totp-register.js"],
+      "include_globs": ["*app=qrsecret*"],
+      "js": ["vendor/jsqr.min.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://auth.iimc.kyoto-u.ac.jp/*"],
+      "js": ["src/auth-totp-register.js"],
       "run_at": "document_idle"
     },
     {
