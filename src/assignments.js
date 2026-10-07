@@ -2886,12 +2886,33 @@
 
   // --- メインロジック ---
 
-  let isLoading = false;
+  let isLoading = false; // 読み込み中か (他の処理からも読む)
+  let loading = null; // 進行中の読み込み (Promise)
+  let refreshing = null; // 読み込み中に頼まれた強制更新 (今の読み込みの後に 1 回だけ行う)
 
-  async function loadAssignments(forceRefresh) {
-    if (isLoading) return;
-    isLoading = true;
+  // 読み込み中に呼ばれても要求を捨てない。進行中の読み込みを返し、強制更新の要求は、
+  // 今の読み込みが終わった後に 1 回だけ行って、その完了を返す (popup の更新ボタンや
+  // 提出直後の再取得が、何もしないまま成功として扱われないように)。
+  function loadAssignments(forceRefresh) {
+    if (!loading) {
+      isLoading = true;
+      loading = loadAssignmentsNow(forceRefresh).finally(function () {
+        isLoading = false;
+        loading = null;
+      });
+      return loading;
+    }
+    if (!forceRefresh) return loading;
+    if (!refreshing) {
+      refreshing = loading.then(function () {
+        refreshing = null;
+        return loadAssignments(true);
+      });
+    }
+    return refreshing;
+  }
 
+  async function loadAssignmentsNow(forceRefresh) {
     try {
       // プレビューモード
       var settings = window.__kulmsSettings || {};
@@ -2899,7 +2920,6 @@
         var mockData = generateMockAssignments();
         updateCacheInfo(Date.now());
         renderAssignments(mockData);
-        isLoading = false;
         return;
       }
 
@@ -2921,7 +2941,6 @@
           renderAssignments(cached.assignments);
           colorSidebarTabs(cached.assignments);
           checkNotificationBadges(cached.assignments);
-          isLoading = false;
           return;
         }
       }
@@ -2961,8 +2980,6 @@
         console.error("[KULMS Extension] assignment fetch error:", e);
         showError(e.message || t("fetchError"));
       }
-    } finally {
-      isLoading = false;
     }
   }
 
