@@ -105,14 +105,19 @@ function t(key, substitutions) {
   if (__kulmsOverrideMessages && Object.prototype.hasOwnProperty.call(__kulmsOverrideMessages, key)) {
     var entry = __kulmsOverrideMessages[key];
     var msg = entry.message;
-    if (substitutions && entry.placeholders) {
+    // 値が空文字列 1 つでも置換する（真偽で確かめると、"" のときに $HOURS$ などが残る）
+    if (substitutions != null && entry.placeholders) {
       var subs = Array.isArray(substitutions) ? substitutions : [substitutions];
+      var values = Object.create(null);
       Object.keys(entry.placeholders).forEach(function (name) {
         var idx = parseInt(entry.placeholders[name].content.replace(/\$/g, "")) - 1;
-        if (idx >= 0 && idx < subs.length) {
-          // 値は関数で渡す（文字列で渡すと、値の中の $& などが置換パターンとして展開される）
-          msg = msg.replace(new RegExp("\\$" + name.toUpperCase() + "\\$", "g"), function () { return subs[idx]; });
-        }
+        if (idx >= 0 && idx < subs.length) values[name.toUpperCase()] = subs[idx];
+      });
+      // メッセージを 1 回だけ置き換える（置き場所ごとに置き換えると、前の値の中の
+      // $MINS$ なども置き換わる）。値は関数で返す（文字列で渡すと、値の中の $& などが
+      // 置換パターンとして展開される）
+      msg = msg.replace(/\$([A-Za-z0-9_@]+)\$/g, function (m, name) {
+        return name in values ? values[name] : m;
       });
     }
     return msg;
