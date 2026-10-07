@@ -4,13 +4,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# 共通除外パターン
-EXCLUDE=(-x ".git/*" ".DS_Store" "*.zip" ".claude/*" "build.sh" ".gitignore" ".github/*" "hot-reload.sh" "safari/*" "docs/*" "gas/*" "*.md" "icons/icon1024.png")
+# 拡張機能が動くのに要るもの。zip と Safari への同期はこれだけを入れる
+# (除外する側を並べると、開発用の node_modules/ や package.json などが入ってしまう)
+RESOURCES=(manifest.json background.js popup.html popup.js styles.css src vendor icons _locales)
+# zip にだけ入れるもの
+PACKAGE_ONLY=(LICENSE)
+# 上の中でも入れないもの (icon1024.png は AppIcon 生成用のソース)
+EXCLUDE=(-x "*.DS_Store" "icons/icon1024.png")
 
 build_chrome() {
   local out="kulms-extension-chrome.zip"
   rm -f "$out"
-  zip -r "$out" . "${EXCLUDE[@]}" -q
+  zip -r "$out" "${RESOURCES[@]}" "${PACKAGE_ONLY[@]}" "${EXCLUDE[@]}" -q
   echo "Created $out"
 }
 
@@ -31,7 +36,7 @@ build_firefox() {
     | .background.scripts = ["background.js"]
   ' manifest.json.bak > manifest.json
 
-  zip -r "$out" . "${EXCLUDE[@]}" -x "manifest.json.bak" -q
+  zip -r "$out" "${RESOURCES[@]}" "${PACKAGE_ONLY[@]}" "${EXCLUDE[@]}" -q
 
   # manifest.json を元に戻す
   mv manifest.json.bak manifest.json
@@ -46,8 +51,8 @@ sync_safari() {
   fi
 
   # 拡張機能リソースを Safari プロジェクトに同期
-  local resources=(manifest.json background.js popup.html popup.js styles.css src icons _locales)
-  for item in "${resources[@]}"; do
+  # (Xcode のビルドは Resources/ の中身をすべて appex に写すので、ここに置けば入る)
+  for item in "${RESOURCES[@]}"; do
     rm -rf "$dest/$item"
     cp -R "$item" "$dest/$item"
   done
