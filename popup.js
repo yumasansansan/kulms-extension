@@ -387,8 +387,9 @@
     var other = active.filter(function (a) { return getUrgencyClass(a.deadline) === "urgency-other"; });
 
     // Integrate deadline memos into urgency groups
+    // 保存値が配列でなければ（壊れた値）メモは無いものとみなす
     var plainMemos = [];
-    if (settings.memos !== false && memos && memos.length > 0) {
+    if (settings.memos !== false && Array.isArray(memos) && memos.length > 0) {
       memos.forEach(function (m) {
         var memo = normalizeMemo(m);
         if (!memo || dismissedState["memo-" + memo.id]) return;

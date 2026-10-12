@@ -718,7 +718,9 @@
   async function loadMemos() {
     return new Promise(function (resolve) {
       window.__kulmsSafeStorage.get(MEMO_KEY, function (result) {
-        memos = result[MEMO_KEY] || [];
+        // 配列でない値（旧版や同期、ストレージの破損で壊れたもの）は空の一覧とみなす
+        // （そのままでは memos.forEach などで描画全体が止まっていた）
+        memos = Array.isArray(result[MEMO_KEY]) ? result[MEMO_KEY] : [];
         resolve();
       });
     });
