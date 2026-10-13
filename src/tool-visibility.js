@@ -14,7 +14,9 @@
   }
 
   function saveConfig(config) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    // ページの localStorage が埋まっていると setItem は QuotaExceededError を投げる。
+    // そのときは保存できないまま続ける
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch (e) { /* 埋まっている */ }
   }
 
   function getSiteId(courseLi) {

@@ -928,7 +928,9 @@
       document.body.classList.add("kulms-panel-pushed");
     }
 
-    sessionStorage.setItem("kulms-panel-open", "1");
+    // ページの sessionStorage が埋まっていると setItem は QuotaExceededError を投げる。
+    // 開いた状態を覚えられなくても、パネルの読み込みは続ける
+    try { sessionStorage.setItem("kulms-panel-open", "1"); } catch (e) { /* 埋まっている */ }
     if (currentView === "assignments") {
       loadAssignments(false);
     } else if (currentView === "textbooks" && window.__kulmsTextbookAPI) {

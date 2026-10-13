@@ -63,7 +63,9 @@
       // 非同期で遷移に間に合わないため、同期で書ける sessionStorage に
       // 提出キーを記録し、遷移先(提出完了ページ)の assignments.js が
       // 確実に拾って checkedState へ反映する。
-      sessionStorage.setItem("kulms-submitted", Date.now().toString());
+      // ページの sessionStorage が埋まっていると setItem は QuotaExceededError を投げる。
+      // そのときは記録できないが、提出の送信は妨げない
+      try { sessionStorage.setItem("kulms-submitted", Date.now().toString()); } catch (e) { /* 埋まっている */ }
       if (key) {
         var pending;
         try {
@@ -72,7 +74,7 @@
           pending = [];
         }
         if (pending.indexOf(key) === -1) pending.push(key);
-        sessionStorage.setItem("kulms-submitted-ids", JSON.stringify(pending));
+        try { sessionStorage.setItem("kulms-submitted-ids", JSON.stringify(pending)); } catch (e) { /* 埋まっている */ }
       }
     });
   }

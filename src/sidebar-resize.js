@@ -13,10 +13,11 @@
     var MIN_WIDTH = 120;
     var MAX_WIDTH = 500;
 
-    // 壊れた保存値をリセット
+    // 壊れた保存値をリセット。ページの localStorage が埋まっていると setItem は
+    // QuotaExceededError を投げるので、そのときはリセットの記録を残さずに続ける
     if (!localStorage.getItem(RESET_KEY)) {
       localStorage.removeItem(STORAGE_KEY);
-      localStorage.setItem(RESET_KEY, "1");
+      try { localStorage.setItem(RESET_KEY, "1"); } catch (e) { /* 埋まっている */ }
     }
 
     var sidebar = document.querySelector("#portal-nav-sidebar");
@@ -78,7 +79,8 @@
       var cols = getComputedStyle(gridParent).gridTemplateColumns;
       var firstCol = parseInt(cols.split(/\s+/)[0], 10);
       if (firstCol >= MIN_WIDTH && firstCol <= MAX_WIDTH) {
-        localStorage.setItem(STORAGE_KEY, firstCol);
+        // 埋まった localStorage には保存できない。幅はこのページの中では保たれる
+        try { localStorage.setItem(STORAGE_KEY, firstCol); } catch (e) { /* 埋まっている */ }
       }
     });
   });

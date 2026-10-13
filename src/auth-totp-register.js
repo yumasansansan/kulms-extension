@@ -130,8 +130,14 @@
     }
     console.log("[KULMS] TOTP registration: secret obtained");
 
-    // 2. シークレットを sessionStorage に一時保存（登録完了後に正式保存する）
-    sessionStorage.setItem("kulms-totp-pending-secret", secret);
+    // 2. シークレットを sessionStorage に一時保存（登録完了後に正式保存する）。
+    // ページの sessionStorage が埋まっていると setItem は QuotaExceededError を投げる。
+    // そのときは完了後の保存はできないが、コードの入力は続ける
+    try {
+      sessionStorage.setItem("kulms-totp-pending-secret", secret);
+    } catch (e) {
+      console.warn("[KULMS] TOTP registration: could not keep the secret until the registration ends:", e && e.name);
+    }
 
     // 3. TOTP コード生成
     var otp = await generateTOTP(secret);
