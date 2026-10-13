@@ -65,12 +65,15 @@
       // 確実に拾って checkedState へ反映する。
       sessionStorage.setItem("kulms-submitted", Date.now().toString());
       if (key) {
+        // sessionStorage は LMS のページの JS からも書き換えられるので、
+        // 文字列の配列でなければ空とみなし、文字列でない要素は捨てる
         var pending;
         try {
           pending = JSON.parse(sessionStorage.getItem("kulms-submitted-ids") || "[]");
         } catch (e) {
           pending = [];
         }
+        pending = Array.isArray(pending) ? pending.filter(function (id) { return typeof id === "string"; }) : [];
         if (pending.indexOf(key) === -1) pending.push(key);
         sessionStorage.setItem("kulms-submitted-ids", JSON.stringify(pending));
       }

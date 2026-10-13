@@ -77,15 +77,24 @@
     return (clone.textContent || "").trim();
   }
 
+  // localStorage は LMS のページの JS からも書き換えられるので、読んだ値の形を確かめる
+  // （tool-visibility.js と同じ）
+  function isObject(value) {
+    return !!value && typeof value === "object" && !Array.isArray(value);
+  }
+
   function getToolConfig() {
-    try { return JSON.parse(localStorage.getItem(TOOL_CONFIG_KEY)) || {}; }
-    catch (e) { return {}; }
+    var config = null;
+    try { config = JSON.parse(localStorage.getItem(TOOL_CONFIG_KEY)); }
+    catch (e) { config = null; }
+    return isObject(config) ? config : {};
   }
 
   function isToolVisibleForSite(siteId, toolName) {
     var cfg = getToolConfig();
-    if (cfg[siteId] && cfg[siteId].hasOwnProperty(toolName)) {
-      return cfg[siteId][toolName];
+    var site = Object.prototype.hasOwnProperty.call(cfg, siteId) ? cfg[siteId] : null;
+    if (isObject(site) && Object.prototype.hasOwnProperty.call(site, toolName)) {
+      return site[toolName];
     }
     return DROPDOWN_DEFAULT_VISIBLE.indexOf(toolName) !== -1;
   }
