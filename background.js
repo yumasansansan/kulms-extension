@@ -12,9 +12,15 @@ chrome.runtime.onInstalled.addListener(async () => {
     const result = await chrome.storage.local.get(["kulms-totp-secret"]);
     const plainSecret = result["kulms-totp-secret"];
     if (plainSecret) {
-      await saveTotpSecret(plainSecret);
+      // popup と同じ形（空白とハイフンを除いて大文字にし、Base32 の文字が 16 字
+      // 以上で = は末尾だけ）のものだけを移す。コードを作れないものは移さず、
+      // 平文だけを消す
+      const secret = typeof plainSecret === "string" ? plainSecret.replace(/[\s-]/g, "").toUpperCase() : "";
+      const valid = /^[A-Z2-7]{16,}=*$/.test(secret);
+      if (valid) await saveTotpSecret(secret);
       await chrome.storage.local.remove(["kulms-totp-secret"]);
-      console.log("[KULMS] migrated TOTP secret from plaintext to encrypted");
+      if (valid) console.log("[KULMS] migrated TOTP secret from plaintext to encrypted");
+      else console.warn("[KULMS] TOTP migration: dropped a plaintext secret that no code can be made from");
     }
   } catch (e) {
     console.warn("[KULMS] TOTP migration error:", e.message);

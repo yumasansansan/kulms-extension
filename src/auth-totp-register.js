@@ -9,8 +9,12 @@
   // === 登録完了ページの検知（URL チェックより先に行う） ===
   // フォーム送信後のリダイレクトで URL から app=qrsecret が落ちる場合があるため、
   // 「設定が完了しました」テキストの検知を最優先で行う。
+  // 空白とハイフンを除いて大文字にしたシークレットの形: Base32 の文字が 16 字
+  // （80 ビット）以上で、= は末尾だけ（popup と設定パネルと同じ）
+  var SECRET_RE = /^[A-Z2-7]{16,}=*$/;
+
   var pendingSecret = sessionStorage.getItem("kulms-totp-pending-secret");
-  if (pendingSecret && document.body.innerText.includes("\u8A2D\u5B9A\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F")) {
+  if (pendingSecret && SECRET_RE.test(pendingSecret) && document.body.innerText.includes("\u8A2D\u5B9A\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F")) {
     chrome.runtime.sendMessage({ type: "kulms-totp-save", secret: pendingSecret });
     sessionStorage.removeItem("kulms-totp-pending-secret");
     console.log("[KULMS] TOTP registration: secret saved after successful registration");
@@ -87,9 +91,9 @@
         if (result && result.data && result.data.startsWith("otpauth://")) {
           try {
             var url = new URL(result.data);
-            var secret = url.searchParams.get("secret");
-            if (secret && /^[A-Z2-7=]+$/i.test(secret.replace(/[\s-]/g, ""))) {
-              return secret.replace(/[\s-]/g, "").toUpperCase();
+            var secret = (url.searchParams.get("secret") || "").replace(/[\s-]/g, "").toUpperCase();
+            if (SECRET_RE.test(secret)) {
+              return secret;
             }
           } catch (e) {
             // invalid URI
@@ -114,8 +118,9 @@
     var match = document.body.innerText.match(
       /\u30B7\u30FC\u30AF\u30EC\u30C3\u30C8[:\uFF1A\s]*([A-Za-z2-7=]+)/
     );
-    if (match) return match[1].replace(/[\s-]/g, "").toUpperCase();
-    return null;
+    if (!match) return null;
+    var secret = match[1].replace(/[\s-]/g, "").toUpperCase();
+    return SECRET_RE.test(secret) ? secret : null;
   }
 
   async function run() {
