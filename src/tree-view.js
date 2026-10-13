@@ -226,6 +226,8 @@
         credentials: "include",
       });
       if (!res.ok) return false;
+      // リダイレクトで別のオリジンや http に移った応答は、TLS が LMS のものと保証しない
+      if (new URL(res.url).origin !== window.location.origin) return false;
 
       var html = await res.text();
       var doc = new DOMParser().parseFromString(html, "text/html");
