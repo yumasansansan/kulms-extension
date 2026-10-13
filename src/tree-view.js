@@ -246,14 +246,23 @@
   // --- 全フォルダ自動展開 ---
   async function expandAllFolders() {
     isBusy = true;
+    // 頼んだフォルダを覚え、同じフォルダは 2 度頼まない。答えがまだ閉じたまま
+    // 示すフォルダ（開けなかったときなど）を、30 回まで頼み直さないため
+    var requested = Object.create(null);
     for (var i = 0; i < 30; i++) {
       var collapsed = table.querySelectorAll(
         'td.title a[onclick*="doExpand_collection"]'
       );
-      if (collapsed.length === 0) break;
-
-      var parsed = parseOnclick(collapsed[0].getAttribute("onclick") || "");
+      var parsed = null;
+      for (var j = 0; j < collapsed.length; j++) {
+        var candidate = parseOnclick(collapsed[j].getAttribute("onclick") || "");
+        if (candidate && requested[candidate.collectionId] !== true) {
+          parsed = candidate;
+          break;
+        }
+      }
       if (!parsed) break;
+      requested[parsed.collectionId] = true;
 
       var ok = await submitFolderAction(parsed.action, parsed.collectionId);
       if (!ok) break;
