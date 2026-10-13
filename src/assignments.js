@@ -2303,17 +2303,22 @@
         }
         return new Uint8Array(output);
       }
-      function generateTOTP(secret) {
+      // シークレットから HMAC の鍵を作る。表示中はコードを毎秒作り直すので、
+      // デコードと鍵の作成は表示を始めるときに 1 度だけ行う
+      function importTOTPKey(secret) {
         var key = base32Decode(secret);
         if (!key) return Promise.resolve(null);
+        return crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+      }
+      function generateTOTP(ck) {
+        if (!ck) return Promise.resolve(null);
         var counter = Math.floor(Date.now() / 1000 / 30);
         var buf = new ArrayBuffer(8);
         var view = new DataView(buf);
         view.setUint32(0, Math.floor(counter / 0x100000000), false);
         view.setUint32(4, counter & 0xffffffff, false);
         return crypto.subtle
-          .importKey("raw", key, { name: "HMAC", hash: "SHA-1" }, false, ["sign"])
-          .then(function (ck) { return crypto.subtle.sign("HMAC", ck, buf); })
+          .sign("HMAC", ck, buf)
           .then(function (hb) {
             var h = new Uint8Array(hb);
             var off = h[19] & 0x0f;
@@ -2367,8 +2372,9 @@
             var secret = resp && resp.secret;
             if (!secret) { render(false); return; }
             codeBox.style.display = "";
+            var ck = importTOTPKey(secret);
             function upd() {
-              generateTOTP(secret).then(function (code) {
+              ck.then(generateTOTP).then(function (code) {
                 if (!code) return;
                 codeVal.textContent = code.slice(0, 3) + " " + code.slice(3);
                 var rem = 30 - (Math.floor(Date.now() / 1000) % 30);

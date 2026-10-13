@@ -643,17 +643,23 @@
     return new Uint8Array(output);
   }
 
-  async function generateTOTPPopup(secret) {
+  // シークレットから HMAC の鍵を作る。表示中はコードを毎秒作り直すので、
+  // デコードと鍵の作成は表示を始めるときに 1 度だけ行う
+  async function importTOTPKeyPopup(secret) {
     var key = base32DecodePopup(secret);
     if (!key) return null;
+    return crypto.subtle.importKey(
+      "raw", key, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
+    );
+  }
+
+  async function generateTOTPPopup(cryptoKey) {
+    if (!cryptoKey) return null;
     var counter = Math.floor(Date.now() / 1000 / 30);
     var counterBytes = new ArrayBuffer(8);
     var view = new DataView(counterBytes);
     view.setUint32(0, Math.floor(counter / 0x100000000), false);
     view.setUint32(4, counter & 0xffffffff, false);
-    var cryptoKey = await crypto.subtle.importKey(
-      "raw", key, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
-    );
     var hmacBuffer = await crypto.subtle.sign("HMAC", cryptoKey, counterBytes);
     var hmac = new Uint8Array(hmacBuffer);
     var offset = hmac[19] & 0x0f;
@@ -740,8 +746,9 @@
           if (!secret) return;
           debugEl.style.display = "block";
           document.getElementById("totp-debug-secret").textContent = "Secret: " + secret;
+          var cryptoKey = importTOTPKeyPopup(secret);
           function updateCode() {
-            generateTOTPPopup(secret).then(function (code) {
+            cryptoKey.then(generateTOTPPopup).then(function (code) {
               if (code) {
                 document.getElementById("totp-debug-otp").textContent = code;
                 var remaining = 30 - Math.floor(Date.now() / 1000) % 30;
