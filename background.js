@@ -703,6 +703,17 @@ async function deleteTotpSecret() {
   await chrome.storage.local.remove(TOTP_LEGACY_CIPHER_KEY);
 }
 
+// バイト列を 1 バイト 1 文字の文字列にする（btoa に渡すため）。
+// String.fromCharCode(...bytes) は引数の数がエンジンの上限（V8 で約 12.5 万）を
+// 超えると RangeError になり、長いシークレットを保存できなかったので、少しずつ変換する
+function bytesToBinaryString(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x2000) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x2000));
+  }
+  return s;
+}
+
 async function encryptSecret(key, plaintext) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext);
@@ -712,8 +723,8 @@ async function encryptSecret(key, plaintext) {
     encoded
   );
   return {
-    data: btoa(String.fromCharCode(...new Uint8Array(cipherBuffer))),
-    iv: btoa(String.fromCharCode(...iv)),
+    data: btoa(bytesToBinaryString(new Uint8Array(cipherBuffer))),
+    iv: btoa(bytesToBinaryString(iv)),
   };
 }
 
