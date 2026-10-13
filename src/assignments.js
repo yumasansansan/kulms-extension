@@ -502,10 +502,35 @@
     return sec * 1000;
   }
 
+  // 保存されたキャッシュは、旧版やストレージの破損で拡張の書く形でないことがある。
+  // 課題の一覧が配列でなければ空の一覧とし、オブジェクトでない項目は捨てる。
+  // 文字列であるべき項目は文字列（有限の数は文字列にする）でなければ空文字列に、
+  // 期限は有限の数でなければ null にする
+  var CACHE_TEXT_FIELDS = ["courseName", "courseId", "name", "url", "status", "grade", "entityId", "type", "deadlineText"];
+  var CACHE_TIME_FIELDS = ["deadline", "closeTime"];
+
+  function normalizeCache(cache) {
+    if (!cache || typeof cache !== "object") return null;
+    var list = Array.isArray(cache.assignments) ? cache.assignments : [];
+    var assignments = [];
+    list.forEach(function (a) {
+      if (!a || typeof a !== "object" || Array.isArray(a)) return;
+      CACHE_TEXT_FIELDS.forEach(function (k) {
+        if (!(k in a) || typeof a[k] === "string") return;
+        a[k] = typeof a[k] === "number" && isFinite(a[k]) ? String(a[k]) : "";
+      });
+      CACHE_TIME_FIELDS.forEach(function (k) {
+        if (k in a && !(typeof a[k] === "number" && isFinite(a[k]))) a[k] = null;
+      });
+      assignments.push(a);
+    });
+    return { timestamp: cache.timestamp, assignments: assignments };
+  }
+
   async function loadCache() {
     return new Promise((resolve) => {
       window.__kulmsSafeStorage.get(CACHE_KEY, (result) => {
-        const cached = result[CACHE_KEY];
+        const cached = normalizeCache(result[CACHE_KEY]);
         if (
           cached &&
           cached.timestamp &&
@@ -523,7 +548,7 @@
   async function loadStaleCache() {
     return new Promise((resolve) => {
       window.__kulmsSafeStorage.get(CACHE_KEY, (result) => {
-        resolve(result[CACHE_KEY] || null);
+        resolve(normalizeCache(result[CACHE_KEY]));
       });
     });
   }
