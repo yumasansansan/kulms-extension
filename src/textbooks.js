@@ -161,6 +161,33 @@
     });
   }
 
+  // 科目ごとの問い合わせ（1 科目で KULASIS へ 2〜4 本）を、同時に limit 科目までに
+  // して並行させる。結果は、科目の順に並べた Promise の配列で返す
+  function fetchTextbooksConcurrently(courses, limit) {
+    var handles = courses.map(function () {
+      var handle = {};
+      handle.promise = new Promise(function (resolve, reject) {
+        handle.resolve = resolve;
+        handle.reject = reject;
+      });
+      // 順番を待つ間に失敗しても、処理されない拒否として報告されないようにする
+      handle.promise.catch(function () {});
+      return handle;
+    });
+    var next = 0;
+    function run() {
+      if (next >= courses.length) return;
+      var index = next++;
+      fetchTextbooksForCourse(courses[index])
+        .then(handles[index].resolve, handles[index].reject)
+        .then(run);
+    }
+    for (var w = 0; w < limit && w < courses.length; w++) run();
+    return handles.map(function (handle) {
+      return handle.promise;
+    });
+  }
+
   // --- 曜日・時限ソート (course-name.js と同じロジック) ---
   var SORT_RE = /\[(?:\d{4}[^\]]*?)?([月火水木金土日])\s*([０-９0-9]+)\s*\]/;
   var DAY_ORDER = { 月: 1, 火: 2, 水: 3, 木: 4, 金: 5, 土: 6, 日: 7 };
@@ -378,6 +405,10 @@
         return;
       }
 
+      // 問い合わせは、KULASIS への負荷を抑えるため同時に 3 科目までにして、先に
+      // 並行して始めておく。下の繰り返しは、科目の順にその結果を待つ
+      var pending = fetchTextbooksConcurrently(courses, 3);
+
       showLoading(
         "\u30B7\u30E9\u30D0\u30B9\u3092\u53D6\u5F97\u4E2D... (0/" + courses.length + ")"
       ); // シラバスを取得中...
@@ -394,7 +425,7 @@
             ")"
         );
         try {
-          var result = await fetchTextbooksForCourse(course);
+          var result = await pending[i];
           if (result.books.length > 0) {
             allTextbooks[name] = { books: result.books, syllabusUrl: result.syllabusUrl, status: "found" };
           } else {
