@@ -642,7 +642,9 @@
         output.push((buffer >> bitsLeft) & 0xff);
       }
     }
-    return new Uint8Array(output);
+    // 8 ビットに満たない入力（Base32 の 1 文字など）は 1 バイトにもならない。
+    // Web Crypto は長さ 0 の HMAC の鍵を拒むため、デコードできないものとする
+    return output.length > 0 ? new Uint8Array(output) : null;
   }
 
   async function generateTOTPPopup(secret) {
@@ -785,6 +787,9 @@
         chrome.runtime.sendMessage({ type: "kulms-totp-load" }, function (response) {
           var secret = response && response.secret;
           if (!secret) return;
+          // 保存済みのシークレットでも、保存のときと同じ形でなければ QR にしない
+          // （Base32 でない文字は URI で 1 字が最大 9 バイトに広がり、QR が大きくなる）
+          if (!BASE32_RE.test(String(secret).replace(/[\s-]/g, "").toUpperCase())) return;
           var uri = "otpauth://totp/KULMS%2B?secret=" + encodeURIComponent(secret) + "&issuer=KULMS%2B";
           try {
             var qr = qrcode(0, "M");

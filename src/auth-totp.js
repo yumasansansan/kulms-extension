@@ -26,7 +26,9 @@
       }
     }
 
-    return new Uint8Array(output);
+    // 8 ビットに満たない入力（Base32 の 1 文字など）は 1 バイトにもならない。
+    // Web Crypto は長さ 0 の HMAC の鍵を拒むため、デコードできないものとする
+    return output.length > 0 ? new Uint8Array(output) : null;
   }
 
   async function generateTOTP(secret) {

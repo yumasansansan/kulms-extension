@@ -2298,7 +2298,9 @@
             output.push((buffer >> bitsLeft) & 0xff);
           }
         }
-        return new Uint8Array(output);
+        // 8 ビットに満たない入力（Base32 の 1 文字など）は 1 バイトにもならない。
+        // Web Crypto は長さ 0 の HMAC の鍵を拒むため、デコードできないものとする
+        return output.length > 0 ? new Uint8Array(output) : null;
       }
       function generateTOTP(secret) {
         var key = base32Decode(secret);
@@ -2387,6 +2389,9 @@
           totpMessage("kulms-totp-load", null, function (resp) {
             var secret = resp && resp.secret;
             if (!secret) { render(false); return; }
+            // 保存済みのシークレットでも、保存のときと同じ形でなければ QR にしない
+            // （Base32 でない文字は URI で 1 字が最大 9 バイトに広がり、QR が大きくなる）
+            if (!B32_RE.test(String(secret).replace(/[\s-]/g, "").toUpperCase())) return;
             if (typeof qrcode !== "function") {
               qrBox.textContent = "QR";
               qrBox.style.display = "";
