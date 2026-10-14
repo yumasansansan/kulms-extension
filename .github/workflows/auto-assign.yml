@@ -1,0 +1,28 @@
+name: Auto Assign
+
+# フォークからの PR では、pull_request で動くジョブの GITHUB_TOKEN は読み取りの権限しか
+# 持たないので、担当者を付けられない（403 Resource not accessible by integration）。
+# pull_request_target なら、このリポジトリーのワークフローとして書き込みの権限で動く。
+# PR のコードは取り出さず、実行もしない（PR から届く値も、スクリプトに埋め込まない）。
+on:
+  pull_request_target:
+    types: [opened]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  assign:
+    name: Auto Assign
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              assignees: [context.repo.owner],
+            });
