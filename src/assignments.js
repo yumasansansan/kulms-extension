@@ -475,25 +475,6 @@
     );
   }
 
-  function isGraded(status) {
-    if (!status) return false;
-    const s = status.toLowerCase();
-    return s.includes("評定済") || s.includes("graded") || s.includes("採点済");
-  }
-
-  function getStatusBadgeClass(status) {
-    if (isGraded(status)) return "graded";
-    if (isSubmitted(status)) return "submitted";
-    return "not-submitted";
-  }
-
-  function getStatusLabel(status) {
-    if (!status) return t("statusNotSubmitted");
-    if (isGraded(status)) return t("statusGraded");
-    if (isSubmitted(status)) return t("statusSubmitted");
-    return status;
-  }
-
   // --- キャッシュ ---
 
   function getFetchIntervalMs() {

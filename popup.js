@@ -898,24 +898,6 @@
       } catch (e) { /* tainted or inaccessible - skip */ }
     }
 
-    // Scan <svg> elements (render to canvas)
-    var svgs = document.querySelectorAll("svg");
-    for (var k = 0; k < svgs.length; k++) {
-      try {
-        var svg = svgs[k];
-        var rect = svg.getBoundingClientRect();
-        if (rect.width < 20 || rect.height < 20) continue;
-        var svgData = new XMLSerializer().serializeToString(svg);
-        var svgCanvas = document.createElement("canvas");
-        svgCanvas.width = rect.width;
-        svgCanvas.height = rect.height;
-        var svgCtx = svgCanvas.getContext("2d");
-        var svgImg = new Image();
-        svgImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgData);
-        // SVG rendering is async, skip if not immediately available
-      } catch (e) { /* skip */ }
-    }
-
     return null;
   }
 

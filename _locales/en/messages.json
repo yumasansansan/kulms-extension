@@ -78,16 +78,6 @@
     "message": "Resubmit period"
   },
 
-  "statusSubmitted": {
-    "message": "Submitted"
-  },
-  "statusGraded": {
-    "message": "Graded"
-  },
-  "statusNotSubmitted": {
-    "message": "Not submitted"
-  },
-
   "refresh": {
     "message": "Refresh assignments"
   },

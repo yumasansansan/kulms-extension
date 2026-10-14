@@ -78,16 +78,6 @@
     "message": "再提出受付期間"
   },
 
-  "statusSubmitted": {
-    "message": "提出済"
-  },
-  "statusGraded": {
-    "message": "評定済"
-  },
-  "statusNotSubmitted": {
-    "message": "未提出"
-  },
-
   "refresh": {
     "message": "課題情報更新"
   },

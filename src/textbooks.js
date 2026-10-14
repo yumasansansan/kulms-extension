@@ -4,7 +4,8 @@
   "use strict";
 
   if (window !== window.top) return;
-  if (window.__kulmsSettings && window.__kulmsSettings.textbooks === false) return;
+  // 教科書を出すかどうかは、設定を読み込んでから assignments.js が決める
+  // （このスクリプトが読み込まれた時点では、設定はまだ読み込まれていない）
 
   const TEXTBOOK_CACHE_KEY = "kulms-textbooks-v3";
   // キャッシュは学期内は無期限 (更新ボタンで手動リフレッシュ)、学期が変わると取り直す
