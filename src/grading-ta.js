@@ -177,7 +177,9 @@
 
       var status = stripStatusIcon(cells[statusColIdx].textContent || "");
       var name = (nameLink.textContent || "").trim();
-      var submitTime = submitColIdx >= 0 ? (cells[submitColIdx].textContent || "").trim().replace(/\s+/g, " ") : "";
+      // 提出日時の列にセルの無い行（colspan でまとめた行など）では、提出日時を空とする
+      var submitCell = submitColIdx >= 0 ? cells[submitColIdx] : null;
+      var submitTime = submitCell ? (submitCell.textContent || "").trim().replace(/\s+/g, " ") : "";
       groups[groupKey].map[ids.submissionId] = {
         name: name,
         status: status,
