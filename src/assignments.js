@@ -1459,9 +1459,20 @@
   // Normalize memo object (backward compat: string-only memos → { text: str })
   // オブジェクトでも文字列でもないもの（null など）は null を返す。呼び出し元はそれを飛ばす
   // （旧版や同期、ストレージの破損で 1 件でも壊れると、描画全体が止まっていた）
+  // 欄の型も正す。表示や連結に使う欄は文字列（有限の数は文字列にする）でなければ
+  // 空文字列に、期限は有限の数でなければ null に、ID は文字列か有限の数でなければ
+  // null にする（文字列にできない値が 1 つでもあると、同じく描画全体が止まっていた）
+  var MEMO_TEXT_FIELDS = ["text", "courseName", "courseId"];
   function normalizeMemo(memo) {
     if (typeof memo === "string") return { id: Date.now(), text: memo, created: Date.now() };
-    return memo && typeof memo === "object" ? memo : null;
+    if (!memo || typeof memo !== "object") return null;
+    MEMO_TEXT_FIELDS.forEach(function (k) {
+      if (!(k in memo) || typeof memo[k] === "string") return;
+      memo[k] = typeof memo[k] === "number" && isFinite(memo[k]) ? String(memo[k]) : "";
+    });
+    if ("deadline" in memo && !(typeof memo.deadline === "number" && isFinite(memo.deadline))) memo.deadline = null;
+    if ("id" in memo && typeof memo.id !== "string" && !(typeof memo.id === "number" && isFinite(memo.id))) memo.id = null;
+    return memo;
   }
 
   function renderMemos() {
