@@ -2255,6 +2255,10 @@
       createSettingsSection(t("totpSectionTitle"), "sectionTotp");
       var body = currentCardBody;
       var totpTimer = null;
+      // 表示した QR コードの SVG 要素と、そのシークレット。QR コードの作成は
+      // シークレットの長さにほぼ比例して重い (マスクを 8 通り試す) ので、
+      // 同じシークレットを表示し直すときは作り直さずに付け直す
+      var qrCache = null;
       var B32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
       var B32_RE = /^[A-Z2-7=\s-]+$/i;
 
@@ -2391,21 +2395,28 @@
           }
           totpMessage("kulms-totp-load", null, function (resp) {
             var secret = resp && resp.secret;
-            if (!secret) { render(false); return; }
+            if (!secret) { qrCache = null; render(false); return; }
             if (typeof qrcode !== "function") {
               qrBox.textContent = "QR";
               qrBox.style.display = "";
               return;
             }
             try {
-              var uri =
-                "otpauth://totp/KULMS%2B?secret=" +
-                encodeURIComponent(secret) +
-                "&issuer=KULMS%2B";
-              var qr = qrcode(0, "M");
-              qr.addData(uri);
-              qr.make();
-              qrBox.innerHTML = qr.createSvgTag(4, 2);
+              // 保存されたシークレットが前に表示したときと同じなら、作った SVG を付け直す
+              if (qrCache && qrCache.secret === secret) {
+                qrBox.appendChild(qrCache.svg);
+              } else {
+                var uri =
+                  "otpauth://totp/KULMS%2B?secret=" +
+                  encodeURIComponent(secret) +
+                  "&issuer=KULMS%2B";
+                var qr = qrcode(0, "M");
+                qr.addData(uri);
+                qr.make();
+                qrBox.innerHTML = qr.createSvgTag(4, 2);
+                var svg = qrBox.firstElementChild;
+                qrCache = svg ? { secret: secret, svg: svg } : null;
+              }
               qrBox.style.display = "";
             } catch (e) {
               qrBox.innerHTML = "";
@@ -2416,6 +2427,7 @@
 
         delBtn.addEventListener("click", function () {
           clearTotpTimer();
+          qrCache = null;
           totpMessage("kulms-totp-delete", null, function () { render(false); });
         });
       }

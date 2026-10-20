@@ -623,6 +623,10 @@
   var BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   var BASE32_RE = /^[A-Z2-7=\s-]+$/i;
   var totpDebugTimer = null;
+  // 表示した QR コードの SVG 要素と、そのシークレット。QR コードの作成は
+  // シークレットの長さにほぼ比例して重い (マスクを 8 通り試す) ので、
+  // 同じシークレットを表示し直すときは作り直さずに付け直す
+  var totpQrCache = null;
 
   function base32DecodePopup(input) {
     var cleaned = input.replace(/[\s-]/g, "").replace(/=+$/, "").toUpperCase();
@@ -764,6 +768,7 @@
           document.getElementById("totp-debug").style.display = "none";
           document.getElementById("totp-qr-display").style.display = "none";
           document.getElementById("totp-qr-canvas").innerHTML = "";
+          totpQrCache = null;
           renderTotpState(false);
         });
       } catch (e) { /* context invalidated */ }
@@ -783,12 +788,19 @@
         chrome.runtime.sendMessage({ type: "kulms-totp-load" }, function (response) {
           var secret = response && response.secret;
           if (!secret) return;
-          var uri = "otpauth://totp/KULMS%2B?secret=" + encodeURIComponent(secret) + "&issuer=KULMS%2B";
           try {
-            var qr = qrcode(0, "M");
-            qr.addData(uri);
-            qr.make();
-            qrCanvas.innerHTML = qr.createSvgTag(4, 2);
+            // 保存されたシークレットが前に表示したときと同じなら、作った SVG を付け直す
+            if (totpQrCache && totpQrCache.secret === secret) {
+              qrCanvas.appendChild(totpQrCache.svg);
+            } else {
+              var uri = "otpauth://totp/KULMS%2B?secret=" + encodeURIComponent(secret) + "&issuer=KULMS%2B";
+              var qr = qrcode(0, "M");
+              qr.addData(uri);
+              qr.make();
+              qrCanvas.innerHTML = qr.createSvgTag(4, 2);
+              var svg = qrCanvas.firstElementChild;
+              totpQrCache = svg ? { secret: secret, svg: svg } : null;
+            }
             qrDisplay.style.display = "block";
           } catch (e) {
             qrCanvas.innerHTML = "";
