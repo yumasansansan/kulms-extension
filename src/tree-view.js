@@ -360,10 +360,23 @@
     }
 
     // 3. フォールバック: まだ閉じたフォルダが残っていれば 1 つずつ展開
-    for (var i = 0; i < 30 && hasCollapsedFolders(); i++) {
-      var collapsed = table.querySelector('td.title a[onclick*="doExpand_collection"]');
-      var parsed = parseOnclick(collapsed.getAttribute("onclick") || "");
+    // 頼んだフォルダを覚え、同じフォルダは 2 度頼まない。答えがまだ閉じたまま
+    // 示すフォルダ（開けなかったときなど）を、30 回まで頼み直さないため
+    var requested = Object.create(null);
+    for (var i = 0; i < 30; i++) {
+      var collapsed = table.querySelectorAll(
+        'td.title a[onclick*="doExpand_collection"]'
+      );
+      var parsed = null;
+      for (var j = 0; j < collapsed.length; j++) {
+        var candidate = parseOnclick(collapsed[j].getAttribute("onclick") || "");
+        if (candidate && requested[candidate.collectionId] !== true) {
+          parsed = candidate;
+          break;
+        }
+      }
       if (!parsed) break;
+      requested[parsed.collectionId] = true;
 
       var ok = await submitFolderAction(parsed.action, parsed.collectionId);
       if (!ok) break;
