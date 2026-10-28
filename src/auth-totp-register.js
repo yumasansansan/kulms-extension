@@ -107,6 +107,10 @@
     var links = document.querySelectorAll("a");
     for (var i = 0; i < links.length; i++) {
       if (links[i].textContent.includes("QR") && links[i].href.includes("void")) {
+        // リンクの先は javascript:void(0) で、content script から移動させると
+        // 拡張機能の CSP に拒まれてエラーになる。テキストを表示するページ自身の
+        // クリック処理は動くので、移動だけを取り消す
+        links[i].addEventListener("click", function (e) { e.preventDefault(); }, { once: true });
         links[i].click();
         break;
       }
