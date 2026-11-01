@@ -472,7 +472,7 @@
     "message": "Page Preloading"
   },
   "featLinkPrerenderDesc": {
-    "message": "Load sidebar links while hovering so pages open instantly on click (Chrome / Edge only)"
+    "message": "Start loading a course from the sidebar as soon as you press its link, so it opens sooner (Chrome / Edge only)"
   },
   "featFileDrop": {
     "message": "File Drag & Drop"

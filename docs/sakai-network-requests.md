@@ -62,7 +62,7 @@ presence や通知のポーリングは行われていない。
 | パネルを開く / 課題タブに切り替え | キャッシュが期限内なら 0、切れていれば全取得 | 下記 | `loadAssignments(false)` |
 | 🔄 / 提出直後 / ポップアップの更新 | 課題一覧の全取得 | 下記 | `loadAssignments(true)` |
 | 授業資料ページ表示 | `doExpandall` (POST) | 1 (全展開済みなら 0) | `tree-view.js` |
-| リンクにマウスを約 200ms 乗せる | ページの先読み (prerender) | 1 | `prerender.js` |
+| 科目のリンクを押し始める | ページの先読み (prerender) | 1 | `prerender.js` |
 | 教科書タブ (学期に 1 回) | サイト一覧 + 科目ごとの担当教員 | 1 + 科目数 × 2 | `textbooks.js`, `background.js` |
 | TA の採点画面 | 提出一覧 HTML | 数件 | `grading-ta.js` |
 
@@ -108,8 +108,8 @@ Sakai の `ResourcesAction.java` には、全フォルダを一度に展開す�
 
 サイドバーのツールリンクは `/portal/site/{siteId}/tool-reset/{toolId}` の形をしている。
 これは開くと、そのツールの状態 (授業資料で今いるフォルダなど) を初期化する URL。
-先読み (prerender) は、マウスを乗せただけでこの URL を開くので、そのツールの状態がサーバー側で初期化される。
-表示中のツール自身のリンクは、先読みの対象から外すのが安全。
+先読み (prerender) がこの URL を開くと、利用者が開かなくても、そのツールの状態がサーバー側で初期化される。
+そのため先読みは、科目のトップ (`/portal/site/{siteId}`) へのリンクに限っている。
 
 ## 計測方法 (再計測用)
 

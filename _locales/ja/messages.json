@@ -472,7 +472,7 @@
     "message": "ページ先読み"
   },
   "featLinkPrerenderDesc": {
-    "message": "サイドバーのリンクにマウスを乗せた時点で遷移先を読み込み、クリック後すぐに表示 (Chrome / Edge のみ)"
+    "message": "サイドバーの科目のリンクを押し始めた時点で遷移先を読み込み、クリック後すぐに表示 (Chrome / Edge のみ)"
   },
   "featFileDrop": {
     "message": "ファイル D&D"
