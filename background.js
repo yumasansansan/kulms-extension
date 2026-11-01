@@ -166,17 +166,29 @@ function encodeShiftJIS(str) {
       encoded += "+";
       continue;
     }
+    // Encoding Standard の Shift_JIS の符号化器と同じく，¥ と ‾ は 1 バイトの
+    // 0x5C と 0x7E にし，− は全角のハイフンマイナスの符号にする（表はデコードから
+    // 作るので，この 3 つを持たない）
+    if (char === "\u00a5" || char === "\u203e") {
+      encoded += char === "\u00a5" ? "%5C" : "%7E";
+      continue;
+    }
     // Shift_JIS lookup
-    const bytes = sjisEncodeTable.get(char);
+    const bytes = sjisEncodeTable.get(char === "\u2212" ? "\uff0d" : char);
     if (bytes) {
       for (const b of bytes) {
         encoded += "%" + b.toString(16).toUpperCase().padStart(2, "0");
       }
+    } else if (code <= 0x80) {
+      // Fallback: percent-encode the ASCII byte（と，そのまま 1 バイトになる U+0080）
+      encoded += "%" + code.toString(16).toUpperCase().padStart(2, "0");
     } else {
-      // Fallback: percent-encode the ASCII byte
-      if (code < 0x80) {
-        encoded += "%" + code.toString(16).toUpperCase().padStart(2, "0");
-      }
+      // Shift_JIS にない文字は，ブラウザが Shift_JIS のフォームを送るときと同じく，
+      // 文字参照（&#<符号位置>;）にして送る（URL Standard の percent-encode after
+      // encoding）．これまでは黙って落としていたので，検索語が別の語になっていた．
+      // 対にならないサロゲートは，U+FFFD として扱う
+      const cp = char.codePointAt(0);
+      encoded += "%26%23" + (cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp) + "%3B";
     }
   }
   return encoded;
