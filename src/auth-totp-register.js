@@ -9,11 +9,14 @@
   // === 登録完了ページの検知（URL チェックより先に行う） ===
   // フォーム送信後のリダイレクトで URL から app=qrsecret が落ちる場合があるため、
   // 「設定が完了しました」テキストの検知を最優先で行う。
-  var pendingSecret = sessionStorage.getItem("kulms-totp-pending-secret");
-  if (pendingSecret && document.body.innerText.includes("\u8A2D\u5B9A\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F")) {
-    chrome.runtime.sendMessage({ type: "kulms-totp-save", secret: pendingSecret });
-    sessionStorage.removeItem("kulms-totp-pending-secret");
-    console.log("[KULMS] TOTP registration: secret saved after successful registration");
+  // 保留中のシークレットは，background がタブごとに chrome.storage.session に
+  // 持つ（ページの sessionStorage には置かない．ページのスクリプトから読めず，
+  // 保存させる値をページが選ぶこともできない）．完了のページでは，完了を
+  // background に知らせ，そのタブで保留中のシークレットを保存させる
+  if (document.body.innerText.includes("\u8A2D\u5B9A\u304C\u5B8C\u4E86\u3057\u307E\u3057\u305F")) {
+    chrome.runtime.sendMessage({ type: "kulms-totp-register-done" }, function (res) {
+      if (res && res.saved) console.log("[KULMS] TOTP registration: secret saved after successful registration");
+    });
     return;
   }
 
@@ -130,8 +133,8 @@
     }
     console.log("[KULMS] TOTP registration: secret obtained");
 
-    // 2. シークレットを sessionStorage に一時保存（登録完了後に正式保存する）
-    sessionStorage.setItem("kulms-totp-pending-secret", secret);
+    // 2. シークレットを background に預ける（登録完了後に正式保存する）
+    chrome.runtime.sendMessage({ type: "kulms-totp-register-pending", secret: secret });
 
     // 3. TOTP コード生成
     var otp = await generateTOTP(secret);

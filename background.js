@@ -731,6 +731,20 @@ async function decryptSecret(key, data, iv) {
   return new TextDecoder().decode(plainBuffer);
 }
 
+// TOTP の登録補助（auth-totp-register.js）が登録の画面で読んだシークレットを，
+// 登録が完了するまで，タブごとに chrome.storage.session に置く．content script
+// からは読めず，ブラウザを閉じると消える．完了を知らせたタブの分だけを，読んで
+// から 30 分のうちに限って保存する
+const TOTP_PENDING_PREFIX = "kulms-totp-pending:";
+const TOTP_PENDING_TTL_MS = 30 * 60 * 1000;
+
+// 保留の置き場所のキー．送り手は，認証サーバーのページの content script に限る
+function totpPendingKey(sender) {
+  if (!sender || !sender.tab || typeof sender.tab.id !== "number") return null;
+  if (typeof sender.url !== "string" || !sender.url.startsWith("https://auth.iimc.kyoto-u.ac.jp/")) return null;
+  return TOTP_PENDING_PREFIX + sender.tab.id;
+}
+
 // TOTP メッセージハンドラ
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== "string" || !message.type.startsWith("kulms-totp-")) return false;
@@ -741,6 +755,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case "kulms-totp-save": {
           await saveTotpSecret(message.secret);
           sendResponse({ ok: true });
+          break;
+        }
+        case "kulms-totp-register-pending": {
+          const key = totpPendingKey(sender);
+          if (!key || typeof message.secret !== "string") {
+            sendResponse({ ok: false });
+            break;
+          }
+          await chrome.storage.session.set({ [key]: { secret: message.secret, at: Date.now() } });
+          sendResponse({ ok: true });
+          break;
+        }
+        case "kulms-totp-register-done": {
+          const key = totpPendingKey(sender);
+          if (!key) {
+            sendResponse({ saved: false });
+            break;
+          }
+          const pending = (await chrome.storage.session.get(key))[key];
+          await chrome.storage.session.remove(key);
+          const age = pending && typeof pending.at === "number" ? Date.now() - pending.at : -1;
+          if (!pending || typeof pending.secret !== "string" || !(age >= 0 && age < TOTP_PENDING_TTL_MS)) {
+            sendResponse({ saved: false });
+            break;
+          }
+          await saveTotpSecret(pending.secret);
+          sendResponse({ saved: true });
           break;
         }
         case "kulms-totp-load": {
