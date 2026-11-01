@@ -114,18 +114,35 @@ function buildSjisEncodeTable() {
   const decoder = new TextDecoder("shift_jis", { fatal: true });
 
   // Double-byte characters
+  // 2 バイトの並びを改行で区切って並べ，1 度にデコードする．並びを 1 つずつ
+  // デコードすると，約 2.2 万回の呼び出しと，無効な並びごとの例外（約 1.5 万回）
+  // になり，Service Worker が起きた後の最初の検索を遅らせていた．無効な並びは
+  // U+FFFD になり（後のバイトが ASCII なら，その文字も続く），改行で区切るので，
+  // ほかの並びには混ざらない
+  const leads = [];
   for (let hi = 0x81; hi <= 0xfc; hi++) {
-    if (hi >= 0xa0 && hi <= 0xdf) continue;
-    for (let lo = 0x40; lo <= 0xfc; lo++) {
-      if (lo === 0x7f) continue;
-      try {
-        const bytes = new Uint8Array([hi, lo]);
-        const char = decoder.decode(bytes);
-        if (char.length === 1 && !map.has(char)) {
-          map.set(char, [hi, lo]);
-        }
-      } catch (e) {
-        // invalid sequence
+    if (hi < 0xa0 || hi > 0xdf) leads.push(hi);
+  }
+  const trails = [];
+  for (let lo = 0x40; lo <= 0xfc; lo++) {
+    if (lo !== 0x7f) trails.push(lo);
+  }
+  const pairBytes = new Uint8Array(leads.length * trails.length * 3);
+  let at = 0;
+  for (const hi of leads) {
+    for (const lo of trails) {
+      pairBytes[at++] = hi;
+      pairBytes[at++] = lo;
+      pairBytes[at++] = 0x0a;
+    }
+  }
+  const pairChars = new TextDecoder("shift_jis").decode(pairBytes).split("\n");
+  let i = 0;
+  for (const hi of leads) {
+    for (const lo of trails) {
+      const char = pairChars[i++];
+      if (char.length === 1 && char !== "\ufffd" && !map.has(char)) {
+        map.set(char, [hi, lo]);
       }
     }
   }
