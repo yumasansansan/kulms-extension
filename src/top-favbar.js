@@ -93,7 +93,15 @@
   function getSiteIdFromUrl(url) {
     if (!url) return null;
     var m = url.match(/\/portal\/site\/([^\/?#]+)/);
-    return m ? decodeURIComponent(m[1]) : null;
+    if (!m) return null;
+    // decodeURIComponent は，% の後に 16 進数が 2 桁続かないときや，UTF-8 に
+    // ならないバイトの並びで URIError を投げる．URL の解析はそうした % を
+    // そのまま残すので，デコードできなければ元の文字列を ID として使う
+    try {
+      return decodeURIComponent(m[1]);
+    } catch {
+      return m[1];
+    }
   }
 
   function findSourceToolList(siteId) {
