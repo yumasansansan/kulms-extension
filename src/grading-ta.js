@@ -402,7 +402,11 @@
     }
 
     if (cachedEntry.source === "localReturn") {
-      var age = Date.now() - (cachedEntry.cachedAt || 0);
+      // sessionStorage はページのスクリプトも書けるので，時刻が数でなければ
+      // 0（最も古い）とみなす（toString が関数でないオブジェクトは，引き算で
+      // 例外を投げる）
+      var cachedAt = typeof cachedEntry.cachedAt === "number" ? cachedEntry.cachedAt : 0;
+      var age = Date.now() - cachedAt;
       return age >= 0 && age < LOCAL_RETURN_TTL_MS && (
         currentEntry.kind === "graded" ||
         currentEntry.kind === "pendingGrade"
