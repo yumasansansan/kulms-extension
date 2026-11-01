@@ -290,13 +290,22 @@
     pruneCache();
   }
 
+  // 項目を保存した時刻．localStorage はページのスクリプトも書けるので，項目は
+  // 拡張機能の書く形とは限らない．JSON のオブジェクトで，savedAt が有限の数で
+  // あるときに限りその値を使い，それ以外は 0（最も古い）とする（数にできない
+  // 値は引き算で例外を投げ，数にならない値は並べ替えの比較を NaN にする）
+  function savedAtOf(text) {
+    var entry = null;
+    try { entry = JSON.parse(text); } catch { return 0; }
+    if (!entry || typeof entry !== "object") return 0;
+    return typeof entry.savedAt === "number" && isFinite(entry.savedAt) ? entry.savedAt : 0;
+  }
+
   // 古いエントリから削除して件数を抑える
   function pruneCache() {
     try {
       var entries = getCacheKeys().map(function (k) {
-        var savedAt = 0;
-        try { savedAt = JSON.parse(localStorage.getItem(k)).savedAt || 0; } catch (e) {}
-        return { key: k, savedAt: savedAt };
+        return { key: k, savedAt: savedAtOf(localStorage.getItem(k)) };
       });
       if (entries.length <= CACHE_MAX_ENTRIES) return;
       entries.sort(function (a, b) { return a.savedAt - b.savedAt; });
