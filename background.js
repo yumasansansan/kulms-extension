@@ -315,13 +315,14 @@ async function searchSyllabus(keyword, options) {
     return null;
   }
 
-  // 検索エンジンが返した最初の結果を使用 (科目名検索の最終フォールバック)
-  console.log(
-    "[KULMS] using first result:",
-    results[0].name,
-    results[0].lectureNo
-  );
-  return { lectureNo: results[0].lectureNo, departmentNo: results[0].departmentNo };
+  // 名前の一致が無いときは，教員名が一致する候補に限って採る（科目名検索の
+  // 最終フォールバック）．検索エンジンが返した最初の結果をそのまま採ると，
+  // 別の科目の教科書を，シラバスへのリンクを付けて表示しうる．教員名が
+  // 分からないか，一致する候補が無ければ採らない（シラバス未登録になる）
+  const byTeacher = await disambiguateByTeacher(results, options);
+  if (byTeacher) return pickResult(byTeacher, "no name match (teacher-matched)");
+  console.log("[KULMS] no name or teacher match (keyword:", keyword + ")");
+  return null;
 }
 
 // 名前マッチが複数残った場合、教員名で絞り込む
